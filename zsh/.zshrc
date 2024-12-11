@@ -29,7 +29,6 @@ source $HOME/.config/zsh/nvim.zsh
 source $HOME/.config/zsh/fzf.zsh
 source $HOME/.config/zsh/myalias.zsh
 source $HOME/.config/zsh/gh.zsh
-source $HOME/.config/zsh/yazi.zsh
 source $HOME/.config/zsh/path.zsh
 
 # cargo
