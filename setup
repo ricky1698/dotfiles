@@ -44,10 +44,7 @@ git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 process "→ stow"
 mv ~/.zshrc ~/.zshrc.bak
 
-stow --target=~/.config --restow fzf
-stow --target=~/.config --restow nvim
-stow --target=~/.config --restow tmux
-stow --target=~/.config --restow zsh
+stow .
 stow --target=$HOME --restow zshrc
 
 process "→ Setting zsh as default shell"
