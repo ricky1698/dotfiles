@@ -1,32 +1,8 @@
 #!/bin/bash
 
-process() {
-  echo "$(date) PROCESSING:  $@" >>$LOG
-  printf "$(tput setaf 6) [STEP ${STEP:-0}] %s...$(tput sgr0)\n" "$@"
-  STEP=$((STEP + 1))
-}
+echo "→ Bootstrap steps start here:\n------------------"
 
-process "→ Bootstrap steps start here:\n------------------"
-
-packages=(
-  zsh
-  stow
-  nvim
-  fzf
-  fd
-  ripgrep
-  tmux
-  uv
-  mise
-)
-
-# Iterate over the array and install each package
-for package in "${packages[@]}"; do
-  echo "Installing $package..."
-  /home/linuxbrew/.linuxbrew/bin/brew install "$package"
-done
-
-process "→ setup oh-my-zsh"
+echo "→ setup oh-my-zsh"
 rm -rf ~/.oh-my-zsh
 sh -c "$(wget -O- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 rm -rf ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting
@@ -34,18 +10,17 @@ git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/
 rm -rf ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
 git clone https://github.com/zsh-users/zsh-autosuggestions.git ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions
 
-process "→ setup tmux"
+echo "→ setup tmux"
 rm -rf ~/.tmux/plugins/tpm
 git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 
-process "→ stow"
+echo "→ stow"
 mv ~/.zshrc ~/.zshrc.bak
 
 stow .
 stow --target=$HOME --restow zshrc
 
-process "→ Setting zsh as default shell"
+echo "→ Setting zsh as default shell"
 sudo chsh -s $(which zsh) "$USER"
 
-process "→ Installation complete"
-
+echo "→ Installation complete"
