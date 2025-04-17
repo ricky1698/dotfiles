@@ -1,9 +1,9 @@
 #!/bin/bash
 
 process() {
-	echo "$(date) PROCESSING:  $@" >>$LOG
-	printf "$(tput setaf 6) [STEP ${STEP:-0}] %s...$(tput sgr0)\n" "$@"
-	STEP=$((STEP + 1))
+  echo "$(date) PROCESSING:  $@" >>$LOG
+  printf "$(tput setaf 6) [STEP ${STEP:-0}] %s...$(tput sgr0)\n" "$@"
+  STEP=$((STEP + 1))
 }
 
 process "→ Bootstrap steps start here:\n------------------"
@@ -17,7 +17,7 @@ packages=(
   ripgrep
   tmux
   uv
-  fnm
+  mise
 )
 
 # Iterate over the array and install each package
@@ -25,9 +25,6 @@ for package in "${packages[@]}"; do
   echo "Installing $package..."
   /home/linuxbrew/.linuxbrew/bin/brew install "$package"
 done
-
-process "→ submodules update"
-git submodule update --init --recursive
 
 process "→ setup oh-my-zsh"
 rm -rf ~/.oh-my-zsh
@@ -51,3 +48,4 @@ process "→ Setting zsh as default shell"
 sudo chsh -s $(which zsh) "$USER"
 
 process "→ Installation complete"
+
