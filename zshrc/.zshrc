@@ -33,6 +33,7 @@ source $HOME/.config/zsh/gh.zsh
 source $HOME/.config/zsh/path.zsh
 source $HOME/.config/zsh/tmux.zsh
 source $HOME/.config/zsh/just.zsh
+source $HOME/.config/zsh/make.zsh
 
 # cargo
 if [ -f "$HOME/.cargo/env" ]; then
