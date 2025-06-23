@@ -52,7 +52,8 @@ alias gitingest='uvx -p 3.12 gitingest'
 alias yt-dlp='uvx -p 3.12 yt-dlp'
 
 # claude
-alias claude='bunx @anthropic-ai/claude-code'
+# alias claude='bunx @anthropic-ai/claude-code'
+alias cld='claude'
 
 # repomix
 alias repomix='bunx repomix'
