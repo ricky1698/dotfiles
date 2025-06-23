@@ -13,3 +13,5 @@ export PATH="$M2_HOME/bin:$PATH"
 # dotnet
 export PATH="$HOME/.dotnet/tools:$HOME/.dotnet:$PATH"
 
+# helper
+export PATH="$HOME/.config/helper:$PATH"
