@@ -53,7 +53,8 @@ alias yt-dlp='uvx -p 3.12 yt-dlp'
 
 # claude
 # alias claude='bunx @anthropic-ai/claude-code'
-alias cld='claude'
+alias cc='claude'
+alias cld='claude --dangerously-skip-permissions'
 
 # repomix
 alias repomix='bunx repomix'
