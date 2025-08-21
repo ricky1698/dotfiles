@@ -9,15 +9,15 @@ alias pbpaste='xsel --output --clipboard'
 fi
 
 # k8s
-alias kp='export KUBECONFIG=$(fd config ~/.kube/ | fzf-tmux --preview="cat {}")'
+alias kp='export KUBECONFIG=$(fd config ~/.kube/ | fzf --tmux --preview="cat {}")'
 
 # fzf
 alias v='nvim'
-alias vv='fd --type f --hidden --exclude .git | fzf-tmux --reverse | xargs nvim'
-alias d="cd \$(fd -t d | fzf-tmux --reverse)"
+alias vv='fd --type f --hidden --exclude .git | fzf --tmux --reverse | xargs nvim'
+alias d="cd \$(fd -t d | fzf --tmux --reverse)"
 
 # aws
-alias ap='export AWS_PROFILE=$(sed -n "s/\[profile \(.*\)\]/\1/gp" ~/.aws/config | fzf-tmux --reverse)'
+alias ap='export AWS_PROFILE=$(sed -n "s/\[profile \(.*\)\]/\1/gp" ~/.aws/config | fzf --tmux --reverse)'
 
 # aider
 alias aider='uvx -p 3.12 --from aider-chat aider'
