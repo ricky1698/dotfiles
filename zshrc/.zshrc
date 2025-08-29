@@ -9,6 +9,7 @@ plugins=(
   helm
   kubectl
   kube-ps1
+  terraform
   git
   docker
   zsh-syntax-highlighting
