@@ -5,8 +5,10 @@ ZSH_THEME="moiamond/gozilla"
 
 plugins=(
   ansible
+  aws
   helm
   kubectl
+  kube-ps1
   git
   docker
   zsh-syntax-highlighting
@@ -57,3 +59,6 @@ alias cbr='git branch --sort=-committerdate | fzf --header "Checkout Recent Bran
 
 # Generated for envman. Do not edit.
 [ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"
+
+bindkey '^[[1;3D' backward-word  # alt-left
+bindkey '^[[1;3C' forward-word   # alt-right
