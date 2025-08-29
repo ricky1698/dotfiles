@@ -21,7 +21,7 @@ local line_end='%{$reset_color%}'
 
 PROMPT="${current_host}${current_path} ${aws_info}${kube_info}
 ╰─➜ ${git_branch}${current_dir}%B${user_symbol}%b "
-RPROMPT="%B${return_code}%xb"
+RPROMPT="%B${return_code}%b"
 
 ZSH_THEME_GIT_PROMPT_PREFIX="("
 ZSH_THEME_GIT_PROMPT_SUFFIX=")"
