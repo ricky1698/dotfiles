@@ -38,6 +38,7 @@ source $HOME/.config/zsh/tmux.zsh
 source $HOME/.config/zsh/just.zsh
 source $HOME/.config/zsh/make.zsh
 source $HOME/.config/zsh/aws.zsh
+source $HOME/.config/zsh/zoxide.zsh
 
 # cargo
 if [ -f "$HOME/.cargo/env" ]; then
