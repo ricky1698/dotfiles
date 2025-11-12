@@ -62,3 +62,8 @@ alias repomix='bunx repomix'
 # brew update && brew outdated && brew upgrade && brew cleanup
 alias bubu='brew update && brew outdated && brew upgrade && brew cleanup'
 
+# spec-kit
+alias specify='uvx --from git+https://github.com/github/spec-kit.git specify'
+
+# bmad-method
+alias bmad-method='npx bmad-method@alpha'
