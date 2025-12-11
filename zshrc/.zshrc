@@ -26,6 +26,7 @@ export XCURSOR_SIZE=32
 
 # User configuration
 
+source $HOME/.config/zsh/path.zsh
 source $HOME/.config/zsh/mise.zsh
 source $HOME/.config/zsh/conda.zsh
 source $HOME/.config/zsh/brew.zsh
@@ -33,7 +34,6 @@ source $HOME/.config/zsh/nvim.zsh
 source $HOME/.config/zsh/fzf.zsh
 source $HOME/.config/zsh/myalias.zsh
 source $HOME/.config/zsh/gh.zsh
-source $HOME/.config/zsh/path.zsh
 source $HOME/.config/zsh/tmux.zsh
 source $HOME/.config/zsh/just.zsh
 source $HOME/.config/zsh/make.zsh
