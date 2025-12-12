@@ -19,6 +19,7 @@ mv ~/.zshrc ~/.zshrc.bak
 
 stow .
 stow --target=$HOME --restow zshrc
+stow --target=$HOME --restow git
 
 echo "→ Setting zsh as default shell"
 sudo chsh -s $(which zsh) "$USER"
