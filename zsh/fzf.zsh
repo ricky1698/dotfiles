@@ -1,9 +1,11 @@
 # ---- FZF ----
 
 # Set up fzf key bindings and fuzzy completion
+
 if command -v fzf >/dev/null 2>&1; then
   eval "$(fzf --zsh)"
 fi
+
 
 # ---- Use fd instead of fzf ----
 

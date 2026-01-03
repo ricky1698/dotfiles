@@ -2,7 +2,6 @@
 alias .f='cd $HOME/dotfiles'
 alias tmp='cd /tmp'
 
-
 if [ $(uname) != "Darwin" ]; then
 alias pbcopy='xsel --input --clipboard'
 alias pbpaste='xsel --output --clipboard'
@@ -10,10 +9,12 @@ fi
 
 # k8s
 alias kp='export KUBECONFIG=$(fd config ~/.kube/ | fzf --tmux --preview="cat {}")'
+alias kis='kubectl --insecure-skip-tls-verify'
 
 # fzf
 alias v='nvim'
 alias vv='fd --type f --hidden --exclude .git | fzf --tmux --reverse | xargs nvim'
+alias f='fd --type f -H -I --exclude .git | fzf --tmux --reverse | xargs cat'
 alias d="cd \$(fd -t d | fzf --tmux --reverse)"
 
 # aws
@@ -35,8 +36,8 @@ alias ssh-ws75='ssh -i ~/.ssh/rh-ws75'
 
 # fabric
 alias fb='fabric'
-alias fbc1s='fabric -s -m gpt-4.1-nano -p'
-alias fbc2s='fabric -s -m gpt-4.1-mini -p'
+alias fbc1s='fabric -s -m gpt-5-nano -p'
+alias fbc2s='fabric -s -m gpt-5-mini -p'
 alias fbc3s='fabric -s -m anthropic/claude-3.7-sonnet -p'
 alias fbr1s='fabric -s -m openai/o3-mini -p'
 alias fbr2s='fabric -s -m openai/o3-mini-high -p'
@@ -53,8 +54,32 @@ alias yt-dlp='uvx -p 3.12 yt-dlp'
 
 # claude
 # alias claude='bunx @anthropic-ai/claude-code'
-alias cc='claude'
-alias cld='claude --dangerously-skip-permissions'
+alias cc='bunx @anthropic-ai/claude-code'
+alias cldys='claude --dangerously-skip-permissions'
+
+# gemini
+alias gemini='bunx @google/gemini-cli'
+alias gmnys='gemini --yolo'
+
+# codex
+alias codex='bunx @openai/codex'
+alias cdys='codex --dangerously-bypass-approvals-and-sandbox'
+
+# crush
+alias crush='bunx @charmland/crush'
+
+# opencode
+alias opencode='bunx opencode-ai'
+
+# copilot
+alias copilot='bunx @github/copilot'
+alias cpys='copilot --allow-all-tools'
+
+# specify node version
+alias specify='uvx --from git+https://github.com/github/spec-kit.git specify'
+
+# bmad-method
+alias bmad-method='npx bmad-method@alpha'
 
 # repomix
 alias repomix='bunx repomix'
@@ -62,8 +87,17 @@ alias repomix='bunx repomix'
 # brew update && brew outdated && brew upgrade && brew cleanup
 alias bubu='brew update && brew outdated && brew upgrade && brew cleanup'
 
-# spec-kit
-alias specify='uvx --from git+https://github.com/github/spec-kit.git specify'
+# task-manager
+alias task-manager='npx -y --package=task-master-ai task-master'
+alias tm='npx -y --package=task-master-ai task-master'
 
-# bmad-method
-alias bmad-method='npx bmad-method@alpha'
+# ai-sdlc
+alias aisdlc='uvx -p 3.12 --from ai-sdlc aisdlc'
+
+# code
+alias csr-m4p48='code --remote ssh-remote+rh-m4p48'
+alias csr-ws75='code --remote ssh-remote+rh-ws75'
+
+# lazygit
+alias lg='lazygit'
+

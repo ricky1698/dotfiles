@@ -8,7 +8,7 @@ else
     local user_symbol='$'
 fi
 
-local current_host='%{$fg[green]%}[%m% ] %{$reset_color%}'
+local current_host='%{$fg[blue]%}[%m% ] %{$reset_color%}'
 local current_path='%{$terminfo[bold]$fg[blue]%}%~ %{$reset_color%}'
 local current_dir='%{$fg[cyan]%}%c %{$reset_color%}'
 

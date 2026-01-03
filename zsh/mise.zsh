@@ -1,2 +1,1 @@
 eval "$(mise activate zsh)"
-

@@ -175,3 +175,4 @@ _just "$@"
 else
     compdef _just just
 fi
+
