@@ -405,7 +405,11 @@ def main():
         else:
             # Interactive selection - show list immediately without pre-checking
             # devcontainer check happens in fzf preview (lazy evaluation)
-            preview_cmd = f"ssh {host} 'ls -lah {{}} && echo && if [ -d {{}}/.devcontainer ] || [ -f {{}}/.devcontainer.json ]; then echo \"✓ DevContainer available\"; fi'"
+            if platform.system() == "Windows":
+                # Show devcontainer status first, then always show ls (use & instead of &&)
+                preview_cmd = f"ssh {host} test -d {{}}/.devcontainer && echo [DevContainer:Yes] || echo [DevContainer:No] & ssh {host} ls -lah {{}}"
+            else:
+                preview_cmd = f"ssh {host} 'if [ -d {{}}/.devcontainer ] || [ -f {{}}/.devcontainer.json ]; then echo \"✓ DevContainer available\"; else echo \"✗ No DevContainer\"; fi && echo && ls -lah {{}}'"
 
             selected = fzf_select(
                 dirs,
