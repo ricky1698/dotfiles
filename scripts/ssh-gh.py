@@ -138,9 +138,11 @@ def ssh_with_gh_token(host: str, token: str):
     fifo_path = f"/tmp/gh-pipe-{secrets.token_hex(4)}"
     
     # Remote command that creates FIFO, loads token from it, and sets up git credentials
+    # Clean up any existing FIFO first to avoid "File exists" error
     remote_interactive_cmd = (
+        f"rm -f {fifo_path} && "
         f"mkfifo {fifo_path} && chmod 600 {fifo_path} && "
-        f"export MY_GH_TOKEN=$(cat {fifo_path}) && rm {fifo_path} && "
+        f"export MY_GH_TOKEN=$(cat {fifo_path}) && rm -f {fifo_path} && "
         f"export GIT_CONFIG_COUNT=1 && "
         f"export GIT_CONFIG_KEY_0='credential.helper' && "
         f"export GIT_CONFIG_VALUE_0='!f() {{ echo \"username=x-access-token\"; echo \"password=$MY_GH_TOKEN\"; }}; f' && "
