@@ -79,9 +79,14 @@ def ssh_exec(host: str, command: str) -> tuple[str, int]:
     return result.stdout, result.returncode
 
 
-def list_remote_directories(host: str, base_path: str, maxdepth: int = 1) -> list[str]:
-    """List directories on remote host"""
-    cmd = f"find '{base_path}' -maxdepth {maxdepth} -type d 2>/dev/null | sort"
+def list_remote_directories(host: str, base_path: str, maxdepth: int = 1, git_only: bool = False) -> list[str]:
+    """List directories on remote host, optionally filter for .git directories"""
+    if git_only:
+        # Find directories containing .git subdirectory
+        cmd = f"find '{base_path}' -maxdepth {maxdepth} -type d -name .git 2>/dev/null | sed 's|/.git$||' | sort"
+    else:
+        cmd = f"find '{base_path}' -maxdepth {maxdepth} -type d 2>/dev/null | sort"
+    
     stdout, exit_code = ssh_exec(host, cmd)
 
     if exit_code != 0:
@@ -320,6 +325,24 @@ def main():
         default=None,
         help="Base path for workspaces (auto-detected if not provided)",
     )
+    parser.add_argument(
+        "--depth",
+        type=int,
+        default=4,
+        help="Search depth for directories (default: 4)",
+    )
+    parser.add_argument(
+        "--git-only",
+        action="store_true",
+        default=True,
+        help="Only show directories containing .git subdirectory (default: True)",
+    )
+    parser.add_argument(
+        "--no-git-only",
+        action="store_false",
+        dest="git_only",
+        help="Show all directories (disable .git filter)",
+    )
 
     args = parser.parse_args()
 
@@ -371,7 +394,7 @@ def main():
     if not workspace_path:
         console.print(f"[cyan]📁 Connecting to {host}...[/cyan]")
 
-        dirs = list_remote_directories(host, base_path, maxdepth=1)
+        dirs = list_remote_directories(host, base_path, maxdepth=args.depth, git_only=args.git_only)
 
         if args.filter != ".":
             dirs = [d for d in dirs if args.filter.lower() in d.lower()]
