@@ -55,15 +55,15 @@ alias yt-dlp='uvx -p 3.12 yt-dlp'
 # claude
 # alias claude='bunx @anthropic-ai/claude-code'
 alias cc='bunx @anthropic-ai/claude-code'
-alias cldys='claude --dangerously-skip-permissions'
+alias cldyo='claude --dangerously-skip-permissions'
 
 # gemini
 alias gemini='bunx @google/gemini-cli'
-alias gmnys='gemini --yolo'
+alias gmnyo='gemini --yolo'
 
 # codex
 alias codex='bunx @openai/codex'
-alias cdys='codex --dangerously-bypass-approvals-and-sandbox'
+alias cdyo='codex --dangerously-bypass-approvals-and-sandbox'
 
 # crush
 alias crush='bunx @charmland/crush'
@@ -73,7 +73,7 @@ alias opencode='bunx opencode-ai'
 
 # copilot
 alias copilot='bunx @github/copilot'
-alias cpys='copilot --allow-all-tools'
+alias cpyo='copilot --allow-all-tools'
 
 # specify node version
 alias specify='uvx --from git+https://github.com/github/spec-kit.git specify'
