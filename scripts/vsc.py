@@ -15,6 +15,7 @@ Works on Windows (PowerShell), macOS, and Linux.
 Usage:
     vsc.py                              # Interactive mode
     vsc.py --host ssh-remote-host       # Select workspace on specific host
+    vsc.py --host local                 # Select local workspace
     vsc.py --filter ca-expl             # Filter workspaces
     vsc.py --mode devcontainer          # Direct mode selection
     vsc.py --path /full/path            # Open specific path
@@ -36,6 +37,11 @@ def is_interactive() -> bool:
     return sys.stdin.isatty()
 
 console = Console()
+
+
+def is_local_host(host: str) -> bool:
+    """Check if host refers to local machine"""
+    return host in ("local", "localhost", "127.0.0.1", "")
 
 
 def parse_ssh_config() -> list[str]:
@@ -79,6 +85,21 @@ def ssh_exec(host: str, command: str) -> tuple[str, int]:
     return result.stdout, result.returncode
 
 
+def list_local_directories(base_path: str, maxdepth: int = 1, git_only: bool = False) -> list[str]:
+    """List directories on local machine, optionally filter for .git directories"""
+    if git_only:
+        cmd = f"find '{base_path}' -maxdepth {maxdepth} -type d -name .git 2>/dev/null | sed 's|/.git$||' | sort"
+    else:
+        cmd = f"find '{base_path}' -maxdepth {maxdepth} -type d 2>/dev/null | sort"
+
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        return []
+
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
 def list_remote_directories(host: str, base_path: str, maxdepth: int = 1, git_only: bool = False) -> list[str]:
     """List directories on remote host, optionally filter for .git directories"""
     if git_only:
@@ -86,7 +107,7 @@ def list_remote_directories(host: str, base_path: str, maxdepth: int = 1, git_on
         cmd = f"find '{base_path}' -maxdepth {maxdepth} -type d -name .git 2>/dev/null | sed 's|/.git$||' | sort"
     else:
         cmd = f"find '{base_path}' -maxdepth {maxdepth} -type d 2>/dev/null | sort"
-    
+
     stdout, exit_code = ssh_exec(host, cmd)
 
     if exit_code != 0:
@@ -95,17 +116,36 @@ def list_remote_directories(host: str, base_path: str, maxdepth: int = 1, git_on
     return [line.strip() for line in stdout.splitlines() if line.strip()]
 
 
+def list_directories(host: str, base_path: str, maxdepth: int = 1, git_only: bool = False) -> list[str]:
+    """List directories on local or remote host"""
+    if is_local_host(host):
+        return list_local_directories(base_path, maxdepth, git_only)
+    else:
+        return list_remote_directories(host, base_path, maxdepth, git_only)
+
+
 def has_devcontainer(host: str, path: str) -> bool:
     """Check if directory has devcontainer config"""
-    cmd = f"[ -d '{path}/.devcontainer' ] || [ -f '{path}/.devcontainer.json' ] && echo 'yes' || echo 'no'"
-    stdout, _ = ssh_exec(host, cmd)
-    return stdout.strip() == "yes"
+    if is_local_host(host):
+        devcontainer_dir = Path(path) / ".devcontainer"
+        devcontainer_json = Path(path) / ".devcontainer.json"
+        return devcontainer_dir.exists() or devcontainer_json.exists()
+    else:
+        cmd = f"[ -d '{path}/.devcontainer' ] || [ -f '{path}/.devcontainer.json' ] && echo 'yes' || echo 'no'"
+        stdout, _ = ssh_exec(host, cmd)
+        return stdout.strip() == "yes"
 
 
 def list_containers(host: str, filter_pattern: str = "") -> list[dict]:
     """List running Docker containers"""
     cmd = "docker ps --format '{{.ID}}\t{{.Names}}\t{{.Image}}'"
-    stdout, exit_code = ssh_exec(host, cmd)
+
+    if is_local_host(host):
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+        stdout = result.stdout
+        exit_code = result.returncode
+    else:
+        stdout, exit_code = ssh_exec(host, cmd)
 
     if exit_code != 0:
         return []
@@ -219,6 +259,13 @@ def get_code_command() -> str:
         return "code"
 
 
+def open_vscode_local(path: str):
+    """Open VSCode locally"""
+    console.print(f"[cyan]Opening {path} in VSCode...[/cyan]")
+    code_cmd = get_code_command()
+    subprocess.run([code_cmd, path])
+
+
 def open_vscode_ssh(host: str, path: str):
     """Open VSCode in SSH Remote mode"""
     console.print(f"[cyan]Opening {path} on {host} in VSCode SSH Remote...[/cyan]")
@@ -228,7 +275,9 @@ def open_vscode_ssh(host: str, path: str):
 
 def open_vscode_devcontainer(host: str, workspace_path: str, workspace_name: str):
     """Open VSCode in DevContainer mode"""
-    console.print(f"[cyan]Opening {workspace_path} on {host} in DevContainer...[/cyan]")
+    is_local = is_local_host(host)
+    location = "local" if is_local else host
+    console.print(f"[cyan]Opening {workspace_path} on {location} in DevContainer...[/cyan]")
 
     # Search for running container
     containers = list_containers(host, workspace_name)
@@ -237,9 +286,6 @@ def open_vscode_devcontainer(host: str, workspace_path: str, workspace_name: str
         container = containers[0]
         console.print(f"[green]Found running container: {container['name']}[/green]")
         console.print(f"[dim]Image: {container['image'][:60]}...[/dim]")
-
-        # Set DOCKER_HOST for remote Docker
-        os.environ["DOCKER_HOST"] = f"ssh://{host}"
 
         # Encode container configuration to hex
         container_config = f'{{"containerName":"/{container["name"]}"}}'
@@ -251,6 +297,11 @@ def open_vscode_devcontainer(host: str, workspace_path: str, workspace_name: str
         # Open VSCode
         code_cmd = get_code_command()
         uri = f"vscode-remote://attached-container+{hex_config}{container_path}"
+
+        if not is_local:
+            # Set DOCKER_HOST for remote Docker
+            os.environ["DOCKER_HOST"] = f"ssh://{host}"
+
         subprocess.run([code_cmd, "--folder-uri", uri])
 
         # Clean up environment
@@ -260,19 +311,27 @@ def open_vscode_devcontainer(host: str, workspace_path: str, workspace_name: str
         console.print(
             f"[yellow]No running container found for {workspace_name}[/yellow]"
         )
-        console.print(
-            "[dim]Opening in SSH Remote (VSCode will prompt to 'Reopen in Container')...[/dim]"
-        )
-        open_vscode_ssh(host, workspace_path)
+        if is_local:
+            console.print(
+                "[dim]Opening locally (VSCode will prompt to 'Reopen in Container')...[/dim]"
+            )
+            open_vscode_local(workspace_path)
+        else:
+            console.print(
+                "[dim]Opening in SSH Remote (VSCode will prompt to 'Reopen in Container')...[/dim]"
+            )
+            open_vscode_ssh(host, workspace_path)
 
 
 def open_terminal(host: str, filter_pattern: str, user: str = "vscode"):
     """Open terminal session in Docker container"""
+    is_local = is_local_host(host)
+    location = "locally" if is_local else f"on {host}"
     containers = list_containers(host, filter_pattern)
 
     if not containers:
         console.print(
-            f"[red]No running containers matching '{filter_pattern}' found on {host}[/red]"
+            f"[red]No running containers matching '{filter_pattern}' found {location}[/red]"
         )
         return
 
@@ -290,17 +349,20 @@ def open_terminal(host: str, filter_pattern: str, user: str = "vscode"):
     container = containers[idx]
 
     console.print(
-        f"[cyan]Connecting to container {container['id']} on {host}...[/cyan]"
+        f"[cyan]Connecting to container {container['id']} {location}...[/cyan]"
     )
 
     # Connect to container
-    if platform.system() == "Windows":
+    exec_cmd = f"docker exec -it -u {user} {container['id']} zsh -c 'source ~/.zshrc; tmux attach || tmux new'"
+
+    if is_local:
+        subprocess.run(exec_cmd, shell=True)
+    elif platform.system() == "Windows":
         # Use PowerShell SSH
-        cmd = f"ssh -t {host} \"docker exec -it -u {user} {container['id']} zsh -c 'source ~/.zshrc; tmux attach || tmux new'\""
+        cmd = f"ssh -t {host} \"{exec_cmd}\""
         subprocess.run(["powershell", "-Command", cmd])
     else:
-        cmd = f"docker exec -it -u {user} {container['id']} zsh -c 'source ~/.zshrc; tmux attach || tmux new'"
-        subprocess.run(["ssh", "-t", host, cmd])
+        subprocess.run(["ssh", "-t", host, exec_cmd])
 
 
 def main():
@@ -311,11 +373,11 @@ def main():
     parser.add_argument(
         "--host",
         default=None,
-        help="Remote SSH host (auto-selected in interactive mode)",
+        help="Remote SSH host or 'local' for local machine (auto-selected in interactive mode)",
     )
     parser.add_argument("--path", help="Workspace path")
     parser.add_argument(
-        "--mode", choices=["ssh", "devcontainer", "terminal"], help="Mode"
+        "--mode", choices=["local", "ssh", "devcontainer", "terminal"], help="Mode"
     )
     parser.add_argument(
         "--filter", default=".", help="Filter for workspace/container search"
@@ -351,17 +413,13 @@ def main():
 
     if not host:
         if is_interactive():
-            # Read SSH config and let user select
-            hosts = parse_ssh_config()
+            # Read SSH config and let user select, add "local" option
+            hosts = ["local"] + parse_ssh_config()
 
-            if not hosts:
-                console.print("[red]No hosts found in ~/.ssh/config[/red]")
-                console.print(
-                    "[yellow]Please specify --host or add hosts to your SSH config[/yellow]"
-                )
-                return
+            if len(hosts) == 1:  # Only "local" available
+                console.print("[yellow]No remote hosts found in ~/.ssh/config[/yellow]")
 
-            selected_host = fzf_select(hosts, prompt="Select SSH host")
+            selected_host = fzf_select(hosts, prompt="Select host (local or SSH)")
 
             if not selected_host:
                 console.print("[yellow]No host selected[/yellow]")
@@ -374,33 +432,38 @@ def main():
             )
             return
 
+    is_local = is_local_host(host)
+
     # Auto-detect base_path if not provided
     base_path = args.base_path
     if not base_path:
-        console.print(f"[dim]Auto-detecting base path on {host}...[/dim]")
-        remote_home, exit_code = ssh_exec(host, "echo $HOME")
-        if exit_code == 0 and remote_home.strip():
-            base_path = f"{remote_home.strip()}/workspaces"
+        if is_local:
+            base_path = f"{Path.home()}/workspaces"
             console.print(f"[dim]Using base path: {base_path}[/dim]")
         else:
-            console.print(f"[red]Failed to detect home directory on {host}[/red]")
-            return
-    else:
-        base_path = args.base_path
+            console.print(f"[dim]Auto-detecting base path on {host}...[/dim]")
+            remote_home, exit_code = ssh_exec(host, "echo $HOME")
+            if exit_code == 0 and remote_home.strip():
+                base_path = f"{remote_home.strip()}/workspaces"
+                console.print(f"[dim]Using base path: {base_path}[/dim]")
+            else:
+                console.print(f"[red]Failed to detect home directory on {host}[/red]")
+                return
 
     # Step 1: Select workspace if not provided
     workspace_path = args.path
+    location = "local" if is_local else host
 
     if not workspace_path:
-        console.print(f"[cyan]📁 Connecting to {host}...[/cyan]")
+        console.print(f"[cyan]📁 Selecting workspace on {location}...[/cyan]")
 
-        dirs = list_remote_directories(host, base_path, maxdepth=args.depth, git_only=args.git_only)
+        dirs = list_directories(host, base_path, maxdepth=args.depth, git_only=args.git_only)
 
         if args.filter != ".":
             dirs = [d for d in dirs if args.filter.lower() in d.lower()]
 
         if not dirs:
-            console.print(f"[red]No directories found in {base_path} on {host}[/red]")
+            console.print(f"[red]No directories found in {base_path} on {location}[/red]")
             return
 
         # If only one match and mode is specified, auto-select it
@@ -428,7 +491,9 @@ def main():
         else:
             # Interactive selection - show list immediately without pre-checking
             # devcontainer check happens in fzf preview (lazy evaluation)
-            if platform.system() == "Windows":
+            if is_local:
+                preview_cmd = "if [ -d {}/.devcontainer ] || [ -f {}/.devcontainer.json ]; then echo '✓ DevContainer available'; else echo '✗ No DevContainer'; fi && echo && ls -lah {}"
+            elif platform.system() == "Windows":
                 # Show devcontainer status first, then always show ls (use & instead of &&)
                 preview_cmd = f"ssh {host} test -d {{}}/.devcontainer && echo [DevContainer:Yes] || echo [DevContainer:No] & ssh {host} ls -lah {{}}"
             else:
@@ -436,7 +501,7 @@ def main():
 
             selected = fzf_select(
                 dirs,
-                prompt=f"Select workspace on {host}",
+                prompt=f"Select workspace on {location}",
                 preview=preview_cmd,
                 preview_window="down:40%",
             )
@@ -463,9 +528,14 @@ def main():
             mode_choices.append(choice)
             mode_map[choice] = "devcontainer"
 
-        choice_ssh = "ssh\tOpen in SSH Remote"
-        mode_choices.append(choice_ssh)
-        mode_map[choice_ssh] = "ssh"
+        if is_local:
+            choice_local = "local\tOpen in VSCode (local)"
+            mode_choices.append(choice_local)
+            mode_map[choice_local] = "local"
+        else:
+            choice_ssh = "ssh\tOpen in SSH Remote"
+            mode_choices.append(choice_ssh)
+            mode_map[choice_ssh] = "ssh"
 
         choice_term = "terminal\tOpen Terminal Session"
         mode_choices.append(choice_term)
@@ -484,6 +554,8 @@ def main():
     # Step 3: Execute based on mode
     if mode == "devcontainer":
         open_vscode_devcontainer(host, workspace_path, workspace_name)
+    elif mode == "local":
+        open_vscode_local(workspace_path)
     elif mode == "ssh":
         open_vscode_ssh(host, workspace_path)
     elif mode == "terminal":
