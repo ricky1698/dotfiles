@@ -81,6 +81,9 @@ alias specify='uvx --from git+https://github.com/github/spec-kit.git specify'
 # bmad-method
 alias bmad-method='npx bmad-method@alpha'
 
+# openspec
+alias openspec='bunx @fission-ai/openspec@latest'
+
 # repomix
 alias repomix='bunx repomix'
 
@@ -100,4 +103,3 @@ alias csr-ws75='code --remote ssh-remote+rh-ws75'
 
 # lazygit
 alias lg='lazygit'
-
