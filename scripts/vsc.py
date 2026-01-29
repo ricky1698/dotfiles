@@ -323,6 +323,69 @@ def open_vscode_devcontainer(host: str, workspace_path: str, workspace_name: str
             open_vscode_ssh(host, workspace_path)
 
 
+def select_and_open_container(host: str, filter_pattern: str = ""):
+    """Select a running container and open it in VSCode DevContainer mode"""
+    is_local = is_local_host(host)
+    location = "locally" if is_local else f"on {host}"
+
+    console.print(f"[cyan]🐳 Listing running containers {location}...[/cyan]")
+    containers = list_containers(host, filter_pattern)
+
+    if not containers:
+        console.print(f"[red]No running containers found {location}[/red]")
+        if filter_pattern:
+            console.print(f"[yellow]Filter used: '{filter_pattern}'[/yellow]")
+        return
+
+    # Build choices for fzf
+    choices = [f"{c['id'][:12]}\t{c['name']}\t{c['image'][:50]}" for c in containers]
+
+    selected = fzf_select(
+        choices,
+        prompt=f"Select container {location}",
+        delimiter="\t",
+    )
+
+    if not selected:
+        console.print("[yellow]No container selected[/yellow]")
+        return
+
+    # Parse selected container
+    selected_id = selected.split("\t")[0]
+    container = next((c for c in containers if c["id"].startswith(selected_id)), None)
+
+    if not container:
+        console.print("[red]Error: Could not find selected container[/red]")
+        return
+
+    console.print(f"[green]Selected container: {container['name']}[/green]")
+    console.print(f"[dim]Image: {container['image'][:60]}...[/dim]")
+
+    # Encode container configuration to hex
+    container_config = f'{{"containerName":"/{container["name"]}"}}'
+    hex_config = container_config.encode().hex()
+
+    # DevContainer internal path - try to detect workspace path
+    # Common patterns: vsc-{workspace_name}-{hash}, {workspace_name}_devcontainer
+    container_name = container["name"]
+    workspace_name = container_name.split("-")[1] if container_name.startswith("vsc-") else container_name.split("_")[0]
+    container_path = f"/workspaces/{workspace_name}"
+
+    # Open VSCode
+    code_cmd = get_code_command()
+    uri = f"vscode-remote://attached-container+{hex_config}{container_path}"
+
+    if not is_local:
+        os.environ["DOCKER_HOST"] = f"ssh://{host}"
+
+    console.print(f"[cyan]Opening VSCode with container path: {container_path}[/cyan]")
+    subprocess.run([code_cmd, "--folder-uri", uri])
+
+    # Clean up environment
+    if "DOCKER_HOST" in os.environ:
+        del os.environ["DOCKER_HOST"]
+
+
 def open_terminal(host: str, filter_pattern: str, user: str = "vscode"):
     """Open terminal session in Docker container"""
     is_local = is_local_host(host)
@@ -433,6 +496,12 @@ def main():
             return
 
     is_local = is_local_host(host)
+
+    # Fast path: If mode is devcontainer and no path specified, list running containers directly
+    if args.mode == "devcontainer" and not args.path:
+        filter_pattern = args.filter if args.filter != "." else ""
+        select_and_open_container(host, filter_pattern)
+        return
 
     # Auto-detect base_path if not provided
     base_path = args.base_path
