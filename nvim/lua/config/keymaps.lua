@@ -21,3 +21,15 @@ keymap.set("n", "<C-l>", "<Cmd>NvimTmuxNavigateRight<CR>", { silent = true })
 
 -- ai
 keymap.set("n", "<leader>aa", "<Cmd>CopilotChat<CR>", { silent = true })
+
+-- Copy relative path to clipboard
+vim.keymap.set("n", "<leader>r", function()
+  local relative_path = vim.fn.expand("%:.")
+
+  if relative_path then
+    vim.fn.setreg("+", relative_path)
+    vim.notify("Copied project-relative path:\n" .. relative_path, vim.log.levels.INFO)
+  else
+    vim.notify("Could not determine relative path.", vim.log.levels.WARN)
+  end
+end, { desc = "Copy path relative to project root" })
