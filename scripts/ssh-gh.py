@@ -2,7 +2,8 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#     "rich>=13.7.0",
+#     "typer>=0.21.1",
+#     "rich>=14.0.0",
 # ]
 # ///
 
@@ -12,21 +13,31 @@ SSH with GitHub Token Tool
 SSH into a remote machine with GitHub token automatically exported in the shell environment.
 
 Usage:
-    ssh-gh.py                    # Interactive mode - select from SSH config hosts
-    ssh-gh.py --host myserver    # Direct SSH to specific host
+    ssh-gh.py                      # Interactive mode - select from SSH config/Tailscale hosts
+    ssh-gh.py --host myserver      # Direct SSH to specific host
+    ssh-gh.py -H myserver          # Short form
 """
 
-import argparse
+import json
 import secrets
 import subprocess
-import sys
 import threading
 import time
 from pathlib import Path
+from typing import Annotated, Optional
 
+import typer
 from rich.console import Console
+from rich.prompt import Prompt
 
+app = typer.Typer(
+    help="SSH with GitHub Token - SSH into remote machine with gh token in environment",
+    no_args_is_help=False,
+)
 console = Console()
+
+# Prefix to identify Tailscale hosts in the selection list
+TAILSCALE_PREFIX = "[TS] "
 
 
 def parse_ssh_config() -> list[str]:
@@ -56,6 +67,56 @@ def parse_ssh_config() -> list[str]:
         return []
 
     return sorted(set(hosts))
+
+
+def find_tailscale_binary() -> str | None:
+    """Find the Tailscale binary path."""
+    candidates = [
+        "tailscale",
+        "tailscale.exe",
+        "/Applications/Tailscale.app/Contents/MacOS/Tailscale",
+        "/usr/bin/tailscale",
+        "/usr/local/bin/tailscale",
+    ]
+    for candidate in candidates:
+        try:
+            subprocess.run([candidate, "version"], capture_output=True, check=True)
+            return candidate
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            continue
+    return None
+
+
+def get_tailscale_hosts() -> list[str]:
+    """Get Tailscale hosts that have SSH enabled (sshHostKeys)."""
+    tailscale_bin = find_tailscale_binary()
+    if not tailscale_bin:
+        return []
+
+    try:
+        result = subprocess.run(
+            [tailscale_bin, "status", "--json"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        data = json.loads(result.stdout)
+    except subprocess.CalledProcessError:
+        console.print("[yellow]Warning: Failed to get Tailscale status[/yellow]")
+        return []
+    except json.JSONDecodeError:
+        console.print("[yellow]Warning: Failed to parse Tailscale status JSON[/yellow]")
+        return []
+
+    hosts = []
+    for peer_info in data.get("Peer", {}).values():
+        ssh_keys = peer_info.get("sshHostKeys")  # note: lowercase 's'
+        if ssh_keys:
+            dns_name = peer_info.get("DNSName", "").rstrip(".")
+            if dns_name:
+                hosts.append(dns_name)
+
+    return sorted(hosts)
 
 
 def get_gh_token() -> str | None:
@@ -125,20 +186,32 @@ def fzf_select(choices: list[str], prompt: str = "") -> str | None:
         return None
 
 
-def ssh_with_gh_token(host: str, token: str):
-    """
-    SSH into host with GH_TOKEN configured in environment using secure FIFO pipe
-    
-    Uses GIT_CONFIG_* environment variables for credential helper
-    with proper username=x-access-token format.
-    """
-    console.print(f"[cyan]Connecting to {host}...[/cyan]")
-    
-    # Generate random FIFO path on remote host
+def prompt_username(default: str = "vscode") -> str:
+    """Prompt user for SSH username with a default value."""
+    return Prompt.ask("[cyan]Enter SSH username[/cyan]", default=default)
+
+
+def ssh_with_gh_token(host: str, token: str | None, username: str | None = None):
+    """SSH into host, optionally injecting GH_TOKEN via secure FIFO pipe."""
+    ssh_target = f"{username}@{host}" if username else host
+
+    if not token:
+        console.print(f"[cyan]Connecting to {ssh_target} (plain mode)...[/cyan]")
+        try:
+            subprocess.run(["ssh", ssh_target])
+            console.print("[green]Session closed[/green]")
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Interrupted[/yellow]")
+        except Exception as e:
+            console.print(f"[red]Connection error: {e}[/red]")
+        finally:
+            console.print("[cyan]Returned to local environment[/cyan]")
+        return
+
+    console.print(f"[cyan]Connecting to {ssh_target}...[/cyan]")
     fifo_path = f"/tmp/gh-pipe-{secrets.token_hex(4)}"
-    
-    # Remote command that creates FIFO, loads token from it, and sets up git credentials
-    # Clean up any existing FIFO first to avoid "File exists" error
+
+    # Create FIFO, load token, set up git credential helper, then spawn shell
     remote_interactive_cmd = (
         f"rm -f {fifo_path} && "
         f"mkfifo {fifo_path} && chmod 600 {fifo_path} && "
@@ -150,30 +223,24 @@ def ssh_with_gh_token(host: str, token: str):
         f"echo 'GitHub credentials securely loaded into memory' && "
         f"exec ${{SHELL:-/bin/sh}} -l"
     )
-    
-    # Background thread to inject token through separate SSH tunnel
+
     def inject_token():
-        # Give main connection time to create FIFO
-        time.sleep(1.2)
+        time.sleep(1.2)  # wait for FIFO creation
         try:
-            # Send token via stdin to avoid command line exposure
             subprocess.run(
-                ["ssh", host, f"cat > {fifo_path}"],
+                ["ssh", ssh_target, f"cat > {fifo_path}"],
                 input=token,
                 text=True,
                 capture_output=True,
                 check=True
             )
         except Exception as e:
-            # Silent failure - main connection will timeout if this fails
             console.print(f"[red]Token injection failed: {e}[/red]")
-    
-    # Start token injection in background
+
     threading.Thread(target=inject_token, daemon=True).start()
-    
-    # Launch interactive SSH session
+
     try:
-        subprocess.run(["ssh", "-t", host, remote_interactive_cmd])
+        subprocess.run(["ssh", "-t", ssh_target, remote_interactive_cmd])
         console.print("[green]Session closed[/green]")
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted[/yellow]")
@@ -183,52 +250,61 @@ def ssh_with_gh_token(host: str, token: str):
         console.print("[cyan]Returned to local environment[/cyan]")
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="SSH with GitHub Token - SSH into remote machine with gh token in environment",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    parser.add_argument(
-        "--host",
-        help="SSH host to connect to (interactive selection if not provided)",
-    )
+@app.command()
+def main(
+    host: Annotated[
+        Optional[str],
+        typer.Option("--host", "-H", help="SSH host to connect to (interactive selection if not provided)"),
+    ] = None,
+    plain: Annotated[
+        bool,
+        typer.Option("--plain", "-p", help="Plain SSH without GitHub token injection"),
+    ] = False,
+):
+    """SSH into a remote machine with GitHub token exported in the shell environment."""
+    token = None
+    if not plain:
+        token = get_gh_token()
+        if not token:
+            raise typer.Exit(1)
 
-    args = parser.parse_args()
-
-    # Get GitHub token first
-    token = get_gh_token()
-    if not token:
-        sys.exit(1)
-
-    # Select host
-    host = args.host
+    username = None
+    is_tailscale_host = False
 
     if not host:
-        # Interactive mode - parse SSH config and select
-        hosts = parse_ssh_config()
-        
-        if not hosts:
-            console.print("[red]No hosts found in SSH config[/red]")
-            sys.exit(1)
+        ssh_hosts = parse_ssh_config()
+        tailscale_hosts = get_tailscale_hosts()
 
-        console.print(f"[green]Found {len(hosts)} hosts in SSH config[/green]")
-        
-        host = fzf_select(hosts, prompt="Select SSH host to connect")
-        
-        if not host:
+        all_hosts = []
+        all_hosts.extend(ssh_hosts)
+        all_hosts.extend(f"{TAILSCALE_PREFIX}{h}" for h in tailscale_hosts)
+
+        if not all_hosts:
+            console.print("[red]No hosts found in SSH config or Tailscale[/red]")
+            raise typer.Exit(1)
+
+        if ssh_hosts:
+            console.print(f"[green]Found {len(ssh_hosts)} hosts in SSH config[/green]")
+        if tailscale_hosts:
+            console.print(f"[blue]Found {len(tailscale_hosts)} Tailscale SSH hosts[/blue]")
+
+        selected = fzf_select(all_hosts, prompt="Select SSH host to connect")
+
+        if not selected:
             console.print("[yellow]No host selected[/yellow]")
-            sys.exit(0)
+            raise typer.Exit(0)
 
-    # SSH with token
-    ssh_with_gh_token(host, token)
+        if selected.startswith(TAILSCALE_PREFIX):
+            host = selected[len(TAILSCALE_PREFIX):]
+            is_tailscale_host = True
+        else:
+            host = selected
+
+    if is_tailscale_host:
+        username = prompt_username()
+
+    ssh_with_gh_token(host, token, username)
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except KeyboardInterrupt:
-        console.print("\n[yellow]Interrupted by user[/yellow]")
-        sys.exit(0)
-    except Exception as e:
-        console.print(f"[red]Error: {e}[/red]")
-        sys.exit(1)
+    app()
