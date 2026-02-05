@@ -285,10 +285,17 @@ def fzf_select(
         return None
 
 
+def is_wsl() -> bool:
+    """Check if running inside WSL"""
+    if platform.system() != "Linux":
+        return False
+    with open("/proc/version", "r") as f:
+        return "microsoft" in f.read().lower()
+
+
 def get_code_command() -> str:
     """Get the appropriate code command for current platform"""
     if platform.system() == "Windows":
-        # Try common locations on Windows
         possible_paths = [
             Path(os.environ.get("LOCALAPPDATA", ""))
             / "Programs"
@@ -300,15 +307,16 @@ def get_code_command() -> str:
             / "bin"
             / "code.cmd",
         ]
-
         for path in possible_paths:
             if path.exists():
                 return str(path)
-
-        # Fallback to PATH
         return "code.cmd"
-    else:
-        return "code"
+
+    if is_wsl():
+        # Use Windows code.exe to avoid WSL remote conflict
+        return "code.exe"
+
+    return "code"
 
 
 def open_vscode_local(path: str):
