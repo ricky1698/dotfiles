@@ -313,24 +313,30 @@ def get_code_command() -> str:
         return "code.cmd"
 
     if is_wsl():
-        # Use Windows code.exe to avoid WSL remote conflict
-        return "code.exe"
+        return "wsl"
 
     return "code"
+
+
+def run_vscode(args: list[str]):
+    """Run VSCode with given arguments, handling WSL specially"""
+    code_cmd = get_code_command()
+    if code_cmd == "wsl":
+        subprocess.run(["cmd.exe", "/c", "code"] + args)
+    else:
+        subprocess.run([code_cmd] + args)
 
 
 def open_vscode_local(path: str):
     """Open VSCode locally"""
     console.print(f"[cyan]Opening {path} in VSCode...[/cyan]")
-    code_cmd = get_code_command()
-    subprocess.run([code_cmd, path])
+    run_vscode([path])
 
 
 def open_vscode_ssh(host: str, path: str):
     """Open VSCode in SSH Remote mode"""
     console.print(f"[cyan]Opening {path} on {host} in VSCode SSH Remote...[/cyan]")
-    code_cmd = get_code_command()
-    subprocess.run([code_cmd, "--remote", f"ssh-remote+{host}", path])
+    run_vscode(["--remote", f"ssh-remote+{host}", path])
 
 
 def open_vscode_devcontainer(host: str, workspace_path: str, workspace_name: str):
@@ -354,17 +360,13 @@ def open_vscode_devcontainer(host: str, workspace_path: str, workspace_name: str
         # Get workspaceFolder from devcontainer.json (or use default)
         container_path = get_workspace_folder(host, workspace_path, workspace_name)
 
-        # Open VSCode
-        code_cmd = get_code_command()
         uri = f"vscode-remote://attached-container+{hex_config}{container_path}"
 
         if not is_local:
-            # Set DOCKER_HOST for remote Docker
             os.environ["DOCKER_HOST"] = f"ssh://{host}"
 
-        subprocess.run([code_cmd, "--folder-uri", uri])
+        run_vscode(["--folder-uri", uri])
 
-        # Clean up environment
         if "DOCKER_HOST" in os.environ:
             del os.environ["DOCKER_HOST"]
     else:
