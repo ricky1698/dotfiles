@@ -41,7 +41,15 @@ def is_interactive() -> bool:
     return sys.stdin.isatty()
 
 
-def get_tailscale_command() -> str:
+def is_wsl() -> bool:
+    """Check if running inside WSL"""
+    if platform.system() != "Linux":
+        return False
+    with open("/proc/version", "r") as f:
+        return "microsoft" in f.read().lower()
+
+
+def get_tailscale_command() -> list[str]:
     """Get the appropriate tailscale command for current platform"""
     system = platform.system()
 
@@ -52,17 +60,20 @@ def get_tailscale_command() -> str:
         ]
         for path in possible_paths:
             if path.exists():
-                return str(path)
-        return "tailscale.exe"
+                return [str(path)]
+        return ["tailscale.exe"]
 
     elif system == "Darwin":
         app_path = Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale")
         if app_path.exists():
-            return str(app_path)
-        return "tailscale"
+            return [str(app_path)]
+        return ["tailscale"]
+
+    elif is_wsl():
+        return ["tailscale.exe"]
 
     else:
-        return "tailscale"
+        return ["tailscale"]
 
 
 def get_tailscale_machines() -> list[dict]:
@@ -71,7 +82,7 @@ def get_tailscale_machines() -> list[dict]:
 
     try:
         result = subprocess.run(
-            [tailscale_cmd, "status", "--json"],
+            tailscale_cmd + ["status", "--json"],
             capture_output=True,
             text=True,
         )
@@ -110,12 +121,15 @@ def get_tailscale_machines() -> list[dict]:
         return machines
 
     except FileNotFoundError:
-        console.print(f"[red]Error: tailscale command not found ({tailscale_cmd})[/red]")
+        console.print(f"[red]Error: tailscale command not found ({' '.join(tailscale_cmd)})[/red]")
         system = platform.system()
         if system == "Darwin":
             console.print("[yellow]  macOS: brew install tailscale or download from https://tailscale.com/download[/yellow]")
         elif system == "Linux":
-            console.print("[yellow]  Linux: https://tailscale.com/download/linux[/yellow]")
+            if is_wsl():
+                console.print("[yellow]  WSL: Install Tailscale on Windows host[/yellow]")
+            else:
+                console.print("[yellow]  Linux: https://tailscale.com/download/linux[/yellow]")
         elif system == "Windows":
             console.print("[yellow]  Windows: https://tailscale.com/download/windows[/yellow]")
         return []
@@ -167,20 +181,23 @@ def copy_to_clipboard(text: str) -> bool:
         if system == "Darwin":
             subprocess.run(["pbcopy"], input=text, text=True, check=True)
         elif system == "Linux":
-            try:
-                subprocess.run(
-                    ["xclip", "-selection", "clipboard"],
-                    input=text,
-                    text=True,
-                    check=True,
-                )
-            except FileNotFoundError:
-                subprocess.run(
-                    ["xsel", "--clipboard", "--input"],
-                    input=text,
-                    text=True,
-                    check=True,
-                )
+            if is_wsl():
+                subprocess.run(["clip.exe"], input=text, text=True, check=True)
+            else:
+                try:
+                    subprocess.run(
+                        ["xclip", "-selection", "clipboard"],
+                        input=text,
+                        text=True,
+                        check=True,
+                    )
+                except FileNotFoundError:
+                    subprocess.run(
+                        ["xsel", "--clipboard", "--input"],
+                        input=text,
+                        text=True,
+                        check=True,
+                    )
         elif system == "Windows":
             subprocess.run(["clip"], input=text, text=True, check=True)
         else:
@@ -189,7 +206,7 @@ def copy_to_clipboard(text: str) -> bool:
         return True
     except FileNotFoundError:
         console.print("[red]Error: Clipboard tool not found[/red]")
-        if system == "Linux":
+        if system == "Linux" and not is_wsl():
             console.print("[yellow]Install xclip: sudo apt install xclip[/yellow]")
         return False
     except subprocess.CalledProcessError as e:
@@ -235,7 +252,7 @@ def main(
 
     choices = []
     for m in machines:
-        status = "●" if m["online"] else "○"
+        status = "[+]" if m["online"] else "[-]"
         self_marker = " (self)" if m.get("is_self") else ""
         choices.append(f"{status} {m['dns_name']}{self_marker}")
 
