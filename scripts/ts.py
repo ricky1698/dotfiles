@@ -45,8 +45,11 @@ def is_wsl() -> bool:
     """Check if running inside WSL"""
     if platform.system() != "Linux":
         return False
-    with open("/proc/version", "r") as f:
-        return "microsoft" in f.read().lower()
+    try:
+        with open("/proc/version", "r") as f:
+            return "microsoft" in f.read().lower()
+    except OSError:
+        return False
 
 
 def get_tailscale_command() -> list[str]:
@@ -55,13 +58,15 @@ def get_tailscale_command() -> list[str]:
 
     if system == "Windows":
         possible_paths = [
-            Path(os.environ.get("ProgramFiles", "")) / "Tailscale" / "tailscale.exe",
+            Path(os.environ.get("ProgramFiles", "C:\\Program Files")) / "Tailscale" / "tailscale.exe",
             Path(os.environ.get("LOCALAPPDATA", "")) / "Tailscale" / "tailscale.exe",
+            Path("C:\\Program Files\\Tailscale\\tailscale.exe"),
+            Path("C:\\Program Files (x86)\\Tailscale\\tailscale.exe"),
         ]
         for path in possible_paths:
             if path.exists():
                 return [str(path)]
-        return ["tailscale.exe"]
+        return ["tailscale"]
 
     elif system == "Darwin":
         app_path = Path("/Applications/Tailscale.app/Contents/MacOS/Tailscale")
@@ -76,20 +81,35 @@ def get_tailscale_command() -> list[str]:
         return ["tailscale"]
 
 
-def get_tailscale_machines() -> list[dict]:
-    """Get list of Tailscale machines using tailscale status --json"""
-    tailscale_cmd = get_tailscale_command()
-
-    try:
-        result = subprocess.run(
-            tailscale_cmd + ["status", "--json"],
+def run_tailscale_command(args: list[str]) -> subprocess.CompletedProcess:
+    """Run tailscale command, handling WSL specially"""
+    if is_wsl():
+        return subprocess.run(
+            ["cmd.exe", "/c", "tailscale"] + args,
             capture_output=True,
             text=True,
         )
 
+    tailscale_cmd = get_tailscale_command()
+    return subprocess.run(
+        tailscale_cmd + args,
+        capture_output=True,
+        text=True,
+    )
+
+
+def get_tailscale_machines() -> list[dict]:
+    """Get list of Tailscale machines using tailscale status --json"""
+    try:
+        result = run_tailscale_command(["status", "--json"])
+
         if result.returncode != 0:
-            console.print(f"[red]Error: Failed to get Tailscale status[/red]")
+            console.print("[red]Error: Failed to get Tailscale status[/red]")
             console.print(f"[dim]{result.stderr}[/dim]")
+            return []
+
+        if not result.stdout.strip():
+            console.print("[red]Error: Empty response from Tailscale[/red]")
             return []
 
         data = json.loads(result.stdout)
@@ -121,17 +141,15 @@ def get_tailscale_machines() -> list[dict]:
         return machines
 
     except FileNotFoundError:
-        console.print(f"[red]Error: tailscale command not found ({' '.join(tailscale_cmd)})[/red]")
-        system = platform.system()
-        if system == "Darwin":
-            console.print("[yellow]  macOS: brew install tailscale or download from https://tailscale.com/download[/yellow]")
-        elif system == "Linux":
-            if is_wsl():
-                console.print("[yellow]  WSL: Install Tailscale on Windows host[/yellow]")
-            else:
-                console.print("[yellow]  Linux: https://tailscale.com/download/linux[/yellow]")
-        elif system == "Windows":
+        console.print("[red]Error: tailscale command not found[/red]")
+        if is_wsl():
+            console.print("[yellow]  WSL: Install Tailscale on Windows host[/yellow]")
+        elif platform.system() == "Darwin":
+            console.print("[yellow]  macOS: brew install tailscale[/yellow]")
+        elif platform.system() == "Windows":
             console.print("[yellow]  Windows: https://tailscale.com/download/windows[/yellow]")
+        else:
+            console.print("[yellow]  Linux: https://tailscale.com/download/linux[/yellow]")
         return []
     except json.JSONDecodeError as e:
         console.print(f"[red]Error: Failed to parse Tailscale output: {e}[/red]")
@@ -167,6 +185,7 @@ def fzf_select(choices: list[str], prompt: str = "") -> Optional[str]:
         console.print("[red]Error: fzf not found. Please install fzf first.[/red]")
         console.print("[yellow]  macOS: brew install fzf[/yellow]")
         console.print("[yellow]  Linux: sudo apt install fzf[/yellow]")
+        console.print("[yellow]  Windows: scoop install fzf[/yellow]")
         return None
     except Exception as e:
         console.print(f"[red]fzf error: {e}[/red]")
