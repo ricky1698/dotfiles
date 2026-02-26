@@ -7,8 +7,8 @@ tmuxp() {
         "workspaces:$HOME/workspaces"
     )
     
-    # Find git repositories by looking for .git directories and getting their parent directories
-    projects=$(find $HOME/workspaces -maxdepth 5 -type d -name ".git" -exec dirname {} \; | \
+    # Find git repositories by looking for .git directories (or .git files in worktrees) and getting their parent directories
+    projects=$(find $HOME/workspaces -maxdepth 5 \( -type d -o -type f \) -name ".git" -exec dirname {} \; | \
         awk -v home=$HOME '{
             proj_name=substr($0, length(home)+2);
             gsub("/", "-", proj_name);
