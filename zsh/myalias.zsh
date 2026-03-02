@@ -54,15 +54,15 @@ alias yt-dlp='uvx -p 3.12 yt-dlp'
 
 # claude
 # alias claude='bunx @anthropic-ai/claude-code'
-alias cc='bunx @anthropic-ai/claude-code'
+# alias cc='bunx @anthropic-ai/claude-code'
 alias cldyo='claude --dangerously-skip-permissions'
 
 # gemini
-alias gemini='bunx @google/gemini-cli'
+# alias gemini='bunx @google/gemini-cli'
 alias gmnyo='gemini --yolo'
 
 # codex
-alias codex='bunx @openai/codex'
+# alias codex='bunx @openai/codex'
 alias cdyo='codex --dangerously-bypass-approvals-and-sandbox'
 
 # crush
@@ -72,14 +72,14 @@ alias crush='bunx @charmland/crush'
 alias opencode='bunx opencode-ai'
 
 # copilot
-alias copilot='bunx @github/copilot'
+# alias copilot='bunx @github/copilot'
 alias cpyo='copilot --allow-all-tools'
 
 # specify node version
 alias specify='uvx --from git+https://github.com/github/spec-kit.git specify'
 
 # bmad-method
-alias bmad-method='npx bmad-method@alpha'
+alias bmad-method='npx bmad-method'
 
 # openspec
 alias openspec='bunx @fission-ai/openspec@latest'
@@ -103,3 +103,49 @@ alias csr-ws75='code --remote ssh-remote+rh-ws75'
 
 # lazygit
 alias lg='lazygit'
+
+# devcontainer cli
+alias devcontainer='bunx @devcontainers/cli'
+
+# uv run helper
+uvs() {
+	local script="$1"
+
+	if [ -z "$script" ]; then
+		script=$(curl -fsSL "https://api.github.com/repos/ricky1698/dotfiles/contents/scripts?ref=main" | \
+			python3 -c 'import json,sys; data=json.load(sys.stdin); [print(i.get("name","")) for i in data if i.get("type")=="file" and i.get("name", "").endswith(".py")]' | \
+			fzf --tmux --reverse)
+
+		if [ -z "$script" ]; then
+			echo "usage: uvs <script|path|url>" >&2
+			return 1
+		fi
+	fi
+
+	local target="$script"
+
+	if [[ "$script" != *"://"* && "$script" != /* && "$script" != ./* && "$script" != ../* ]]; then
+		target="https://raw.githubusercontent.com/ricky1698/dotfiles/refs/heads/main/scripts/${script%.py}.py"
+	fi
+
+	echo "uv run $target" >&2
+	uv run "$target"
+}
+
+# npm global tools manager
+npm-update-global() {
+    local packages=(
+        "@google/gemini-cli"
+        "@openai/codex"
+        "@github/copilot"
+    )
+    
+    echo "Updating global npm packages..."
+    for pkg in "${packages[@]}"; do
+        echo "→ Updating $pkg..."
+        npm install -g "$pkg"
+    done
+    echo "✓ All packages updated!"
+}
+
+alias nug='npm-update-global'
