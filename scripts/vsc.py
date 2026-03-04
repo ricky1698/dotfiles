@@ -420,7 +420,7 @@ def open_terminal(host: str, workspace_name: str, user: str = "vscode"):
     )
 
     # Connect to container
-    exec_cmd = f"docker exec -it -u {user} {container['id']} zsh -c 'source ~/.zshrc; tmux attach || tmux new'"
+    exec_cmd = f"docker exec -it -e TERM=$TERM -e COLORTERM=$COLORTERM -u {user} {container['id']} zsh -c 'source ~/.zshrc; tmux attach || tmux new'"
 
     if is_local:
         subprocess.run(exec_cmd, shell=True)
