@@ -420,7 +420,10 @@ def open_terminal(host: str, workspace_name: str, user: str = "vscode"):
     )
 
     # Connect to container
-    exec_cmd = f"docker exec -it -e TERM=$TERM -e COLORTERM=$COLORTERM -u {user} {container['id']} zsh -c 'source ~/.zshrc; tmux attach || tmux new'"
+    # Resolve TERM/COLORTERM in Python to avoid shell expansion issues (e.g. PowerShell treats $TERM as its own variable)
+    term = os.environ.get("TERM", "xterm-256color")
+    colorterm = os.environ.get("COLORTERM", "truecolor")
+    exec_cmd = f"docker exec -it -e TERM={term} -e COLORTERM={colorterm} -u {user} {container['id']} zsh -c 'source ~/.zshrc; tmux attach || tmux new'"
 
     if is_local:
         subprocess.run(exec_cmd, shell=True)
