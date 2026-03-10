@@ -30,4 +30,5 @@
 	pager = cat
 [merge]
 	conflictstyle = diff3
-
+[worktree]
+	useRelativePaths = true
