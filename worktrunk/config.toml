@@ -23,7 +23,7 @@
 #
 # # Default — sibling directory
 # # Creates: ~/code/myproject.feature-auth
-worktree-path = "~/{{ repo }}-workspaces/{{ repo }}.{{ branch | sanitize }}"
+worktree-path = "{{ repo_path }}/../{{ repo }}-workspaces/{{ repo }}.{{ branch | sanitize }}"
 #
 # # Inside the repository
 # # Creates: ~/code/myproject/.worktrees/feature-auth
