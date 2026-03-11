@@ -180,6 +180,7 @@ def get_workspace_folder(host: str, workspace_path: str, workspace_name: str) ->
                 config = json.loads(config_content)
                 if "workspaceFolder" in config:
                     folder = config["workspaceFolder"]
+                    folder = folder.replace("${localWorkspaceFolderBasename}", workspace_name)
                     console.print(f"[dim]Using workspaceFolder from config: {folder}[/dim]")
                     return folder
             except json.JSONDecodeError:
