@@ -69,7 +69,7 @@ alias cdyo='codex --dangerously-bypass-approvals-and-sandbox'
 alias crush='bunx @charmland/crush'
 
 # opencode
-alias opencode='bunx opencode-ai'
+# alias opencode='bunx opencode-ai'
 
 # copilot
 # alias copilot='bunx @github/copilot'
@@ -138,6 +138,7 @@ npm-update-global() {
         "@google/gemini-cli"
         "@openai/codex"
         "@github/copilot"
+        "opencode-ai"
     )
     
     echo "Updating global npm packages..."
