@@ -56,6 +56,8 @@ alias yt-dlp='uvx -p 3.12 yt-dlp'
 # alias claude='bunx @anthropic-ai/claude-code'
 # alias cc='bunx @anthropic-ai/claude-code'
 alias cldyo='claude --dangerously-skip-permissions'
+alias ccyo='claude --dangerously-skip-permissions'
+alias ccp='claude --dangerously-skip-permissions --output-format json --verbose -p'
 
 # gemini
 # alias gemini='bunx @google/gemini-cli'
@@ -63,17 +65,24 @@ alias gmnyo='gemini --yolo'
 
 # codex
 # alias codex='bunx @openai/codex'
-alias cdyo='codex --dangerously-bypass-approvals-and-sandbox'
+alias cxyo='codex --dangerously-bypass-approvals-and-sandbox'
+alias cxp='codex exec --yolo --json'
 
 # crush
 alias crush='bunx @charmland/crush'
 
 # opencode
 # alias opencode='bunx opencode-ai'
+alias ocp="opencode run"
+
+# kiro-cli
+alias kcli="kiro-cli"
+alias kclip="kiro-cli chat --no-interactive --trust-all-tools"
 
 # copilot
 # alias copilot='bunx @github/copilot'
-alias cpyo='copilot --allow-all-tools'
+alias copyo='copilot --allow-all-tools'
+alias copp='copilot --yolo --output-format json -p'
 
 # specify node version
 alias specify='uvx --from git+https://github.com/github/spec-kit.git specify'
