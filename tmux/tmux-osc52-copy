@@ -1,0 +1,6 @@
+#!/bin/sh
+buf=$(cat | base64 | tr -d '\n')
+tty=$(tmux display-message -p '#{client_tty}' 2>/dev/null)
+if [ -n "$tty" ]; then
+  printf '\033]52;c;%s\a' "$buf" > "$tty"
+fi

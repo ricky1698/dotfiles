@@ -28,6 +28,9 @@ vim.keymap.set("n", "<leader>r", function()
 
   if relative_path then
     vim.fn.setreg("+", relative_path)
+    -- Also send via OSC 52 for web terminal clipboard
+    local base64 = require("smartyank.base64").encode(relative_path)
+    vim.fn.chansend(vim.v.stderr, string.format("\x1b]52;c;%s\x07", base64))
     vim.notify("Copied project-relative path:\n" .. relative_path, vim.log.levels.INFO)
   else
     vim.notify("Could not determine relative path.", vim.log.levels.WARN)
